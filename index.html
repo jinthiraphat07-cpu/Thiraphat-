@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Medical Assistant — Frontend (Single File)</title>
+  <style>
+    /* =========== Theme colors =========== */
+    :root{
+      --primary:#0ea5e9; /* ฟ้า */
+      --primary-strong:#0284c7;
+      --glass: rgba(255,255,255,0.06);
+      --card-bg: rgba(255,255,255,0.04);
+      --accent:#ffffff;
+      --muted: rgba(255,255,255,0.7);
+      --bg:#071026; /* deep space */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+
+    /* =========== Space background (stars + big moon) =========== */
+    body{
+      background: radial-gradient(ellipse at bottom, rgba(6,12,34,1) 0%, var(--bg) 60%);
+      color:var(--accent);
+      -webkit-font-smoothing:antialiased;
+      overflow:hidden;
+    }
+    .space{
+      position:fixed;inset:0;z-index:0;pointer-events:none;
+      background-image:
+        radial-gradient(circle at 20% 10%, rgba(255,255,255,0.9) 0.6px, transparent 0.7px),
+        radial-gradient(circle at 40% 30%, rgba(255,255,255,0.8) 0.5px, transparent 0.7px),
+        radial-gradient(circle at 80% 20%, rgba(255,255,255,0.7) 0.7px, transparent 0.9px),
+        radial-gradient(circle at 65% 60%, rgba(255,255,255,0.5) 1px, transparent 1.2px),
+        radial-gradient(circle at 10% 70%, rgba(255,255,255,0.6) 0.6px, transparent 0.8px),
+        radial-gradient(circle at 90% 85%, rgba(255,255,255,0.5) 1px, transparent 1.3px);
+      background-size: 800px 800px, 600px 600px, 1200px 1200px, 400px 400px, 1000px 1000px, 500px 500px;
+      animation: twinkle 12s linear infinite;
+    }
+    @keyframes twinkle{ 0%{opacity:0.9}50%{opacity:1}100%{opacity:0.95} }
+
+    /* Big crescent moon */
+    .moon{
+      position:fixed;right:6%;top:6%;width:220px;height:220px;border-radius:50%;
+      background: radial-gradient(circle at 35% 25%, #fff 0%, #f1f6ff 20%, #e6f2ff 45%, rgba(255,255,255,0.05) 60%), linear-gradient(135deg, rgba(200,230,255,0.15), rgba(255,255,255,0.03));
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6), inset -14px -8px 40px rgba(0,0,0,0.12);
+      transform: rotate(-15deg);
+      z-index:1;pointer-events:none;mix-blend-mode:screen;
+    }
+    .moon::after{content:"";position:absolute;right:-32px;top:20px;width:120px;height:120px;border-radius:50%;background:var(--bg);}
+
+    /* =========== App Frame =========== */
+    .app{
+      position:relative;z-index:2;max-width:1200px;margin:40px auto;padding:28px;border-radius:14px;backdrop-filter: blur(6px);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      box-shadow: 0 10px 30px rgba(2,8,23,0.6);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    header{display:flex;align-items:center;gap:16px}
+    .logo{display:flex;align-items:center;gap:12px}
+    .logo .dot{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--primary-strong));display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 6px 18px rgba(2,132,199,0.18)}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    /* Tabs */
+    .tabs{margin-top:20px;display:flex;gap:12px;flex-wrap:wrap}
+    .tab{padding:10px 14px;border-radius:10px;background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer}
+    .tab.active{background:linear-gradient(90deg, rgba(14,165,233,0.12), rgba(2,132,199,0.08));color:var(--accent);border-color:rgba(14,165,233,0.2)}
+
+    /* layout */
+    .content{margin-top:18px;display:grid;grid-template-columns:1fr;gap:16px}
+    @media(min-width:900px){ .content{grid-template-columns: 1fr 360px;} }
+
+    /* main panel */
+    .panel{padding:16px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03)}
+
+    /* Dashboard cards */
+    .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    @media(min-width:700px){.cards{grid-template-columns:repeat(4,1fr)}}
+    .card{padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02);min-height:80px}
+    .card .k{font-size:12px;color:var(--muted)}
+    .card .v{font-size:20px;font-weight:700;margin-top:6px}
+
+    /* Image Analysis */
+    .uploader{display:flex;gap:12px;align-items:center}
+    .preview{width:160px;height:160px;border-radius:10px;background:var(--card-bg);display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .preview img{max-width:100%;height:auto;display:block}
+    .formcol{flex:1}
+    .field{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+    input[type=file]{color:transparent}
+    select,input,button,textarea{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--accent)}
+    .small{font-size:13px;color:var(--muted)}
+
+    /* Chat */
+    .chat-window{height:360px;display:flex;flex-direction:column;border-radius:10px;overflow:hidden}
+    .messages{flex:1;padding:12px;overflow:auto;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent)}
+    .msg{max-width:78%;padding:10px;border-radius:10px;margin-bottom:8px}
+    .msg.user{align-self:flex-end;background:linear-gradient(90deg,var(--primary),var(--primary-strong));color:#021828}
+    .msg.ai{align-self:flex-start;background:rgba(255,255,255,0.03);color:var(--accent)}
+    .chat-input{display:flex;gap:8px;padding:10px;border-top:1px solid rgba(255,255,255,0.02)}
+
+    /* Search table */
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:left}
+    th{color:var(--muted);font-weight:600}
+
+    /* footer */
+    footer{margin-top:14px;color:var(--muted);font-size:12px;text-align:center}
+
+    /* buttons */
+    .btn{background:linear-gradient(90deg,var(--primary),var(--primary-strong));color:#021828;border:none;padding:10px 12px;border-radius:8px;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+
+    /* small helpers */
+    .muted{color:var(--muted)}
+    .right{display:flex;justify-content:flex-end}
+
+  </style>
+</head>
+<body>
+  <div class="space"></div>
+  <div class="moon"></div>
+
+  <div class="app" role="application">
+    <header>
+      <div class="logo">
+        <div class="dot">AI</div>
+        <div>
+          <h1>AI Medical Assistant</h1>
+          <p class="lead">Frontend single-file — Connects to backend at <code>http://localhost:8000</code></p>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <div class="muted" style="font-size:13px">Status: <span id="server-status">Checking...</span></div>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Main Tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="analysis">Image Analysis</button>
+      <button class="tab" data-tab="chat">Chatbot</button>
+      <button class="tab" data-tab="search">Patient Search</button>
+    </div>
+
+    <div class="content">
+      <main class="panel" id="main-panel">
+        <!-- Sections (shown/hidden by JS) -->
+
+        <section id="dashboard" class="section">
+          <h2>Dashboard</h2>
+          <p class="small muted">สรุปสถิติผู้ป่วยและการวิเคราะห์เบื้องต้น</p>
+          <div style="height:12px"></div>
+          <div class="cards" id="stats-cards">
+            <!-- cards injected here -->
+          </div>
+        </section>
+
+        <section id="analysis" class="section" style="display:none">
+          <h2>Image Analysis</h2>
+          <p class="small muted">อัปโหลดรูป X-ray หรือ Blood sample เพื่อให้ AI วิเคราะห์</p>
+          <div style="height:12px"></div>
+          <div class="uploader">
+            <div class="preview" id="img-preview">Preview</div>
+            <div class="formcol">
+              <div class="field">
+                <label class="small">เลือกไฟล์</label>
+                <input type="file" id="file-input" accept="image/*" />
+              </div>
+              <div class="field">
+                <label class="small">ประเภทการวิเคราะห์</label>
+                <select id="analysis-type"><option value="xray">X-ray</option><option value="blood">Blood</option></select>
+              </div>
+              <div class="field">
+                <button class="btn" id="analyze-btn">Analyze</button>
+                <span id="analyze-status" class="small muted" style="margin-left:10px"></span>
+              </div>
+              <div id="analysis-result" style="margin-top:8px"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="chat" class="section" style="display:none">
+          <h2>Chatbot (Doctor AI)</h2>
+          <p class="small muted">คุยกับแพทย์ AI — session จะถูกเก็บไว้ใน localStorage</p>
+          <div style="height:12px"></div>
+
+          <div class="chat-window panel">
+            <div class="messages" id="messages" aria-live="polite"></div>
+            <div class="chat-input">
+              <input id="chat-input" placeholder="ถามแพทย์ AI ..." />
+              <button class="btn" id="send-chat">ส่ง</button>
+            </div>
+          </div>
+
+        </section>
+
+        <section id="search" class="section" style="display:none">
+          <h2>Patient Search</h2>
+          <p class="small muted">ค้นหาผู้ป่วยโดยชื่อหรือรหัส</p>
+          <div style="height:12px"></div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input id="search-q" placeholder="Enter name or patient_id" />
+            <button class="btn" id="search-btn">Search</button>
+          </div>
+          <div class="panel" style="padding:8px">
+            <table id="search-table">
+              <thead><tr><th>Patient ID</th><th>Name</th><th>Age</th><th>Last Visit</th><th>Action</th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <div id="search-status" class="small muted" style="margin-top:8px"></div>
+          </div>
+        </section>
+
+      </main>
+
+      <aside class="panel">
+        <h3>Quick Controls</h3>
+        <div style="height:8px"></div>
+        <div class="small muted">Session ID:</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+          <input id="session-id" style="flex:1" />
+          <button class="btn ghost" id="new-session">New</button>
+        </div>
+
+        <div style="height:14px"></div>
+        <h4>Recent Activity</h4>
+        <div id="recent-activity" class="small muted">ไม่มีการกระทำล่าสุด</div>
+
+        <div style="height:14px"></div>
+        <h4>About</h4>
+        <div class="small muted">This UI uses Fetch API to call backend endpoints: /patient/stats, /analyze, /chat, /patient/search</div>
+      </aside>
+    </div>
+
+    <footer>Built with ❤️ — Theme: Space • Primary: Blue • Single-file frontend</footer>
+  </div>
+
+  <script>
+    const BASE = 'http://localhost:8000';
+
+    /* ---------- Utilities ----------*/
+    function el(q){return document.querySelector(q)}
+    function create(tag,cls){const e=document.createElement(tag);if(cls)e.className=cls;return e}
+
+    // Tabs
+    document.querySelectorAll('.tab').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.section').forEach(s=>s.style.display='none');
+        document.getElementById(tab).style.display='block';
+      })
+    })
+
+    /* ---------- Server status & Dashboard ----------*/
+    async function checkServer(){
+      try{
+        const r = await fetch(BASE + '/patient/stats', {method:'GET'});
+        if(!r.ok) throw new Error('Status ' + r.status);
+        el('#server-status').textContent = 'Online';
+        const data = await r.json();
+        renderStats(data);
+      }catch(err){
+        el('#server-status').textContent = 'Offline';
+        el('#stats-cards').innerHTML = `<div class="card">ไม่สามารถเชื่อมต่อ backend: ${err.message}</div>`;
+      }
+    }
+
+    function renderStats(data){
+      // Expecting { total_patients, todays_analyses, pending_reports, positive_cases, ... }
+      const container = el('#stats-cards');container.innerHTML='';
+      const items = [
+        {k:'Total Patients', v:data.total_patients ?? data.total ?? '—'},
+        {k:`Today's Analyses`, v:data.todays_analyses ?? data.analyses_today ?? '—'},
+        {k:'Pending Reports', v:data.pending_reports ?? 0},
+        {k:'Positive Cases', v:data.positive_cases ?? 0}
+      ];
+      items.forEach(it=>{
+        const c = create('div','card');
+        c.innerHTML = `<div class="k">${it.k}</div><div class="v">${it.v}</div>`;
+        container.appendChild(c);
+      })
+    }
+
+    /* ---------- Image Analysis ----------*/
+    let selectedFile = null;
+    el('#file-input').addEventListener('change', (e)=>{
+      const f = e.target.files[0];
+      selectedFile = f || null;
+      const prev = el('#img-preview');
+      prev.innerHTML='';
+      if(!f) return prev.textContent='Preview';
+      const img = create('img'); img.src = URL.createObjectURL(f);
+      prev.appendChild(img);
+    });
+
+    el('#analyze-btn').addEventListener('click', async ()=>{
+      const type = el('#analysis-type').value;
+      if(!selectedFile){ el('#analyze-status').textContent='กรุณาเลือกไฟล์ก่อน'; return }
+      el('#analyze-status').textContent='Uploading...';
+      const fd = new FormData(); fd.append('file', selectedFile); fd.append('type', type);
+      try{
+        const res = await fetch(BASE + '/analyze', {method:'POST', body:fd});
+        if(!res.ok) throw new Error('Status '+res.status);
+        const j = await res.json();
+        el('#analyze-status').textContent='Done';
+        // show result
+        const out = el('#analysis-result'); out.innerHTML='';
+        const heading = create('div'); heading.className='small muted'; heading.textContent='Result:'; out.appendChild(heading);
+        const pre = create('pre'); pre.style.whiteSpace='pre-wrap'; pre.textContent = JSON.stringify(j, null, 2);
+        out.appendChild(pre);
+        // if backend returns image url
+        if(j.image_url){ const im = create('img'); im.src=j.image_url; im.style.maxWidth='100%'; im.style.borderRadius='8px'; out.appendChild(im); }
+        pushActivity('Analyzed image ('+type+')');
+      }catch(err){ el('#analyze-status').textContent = 'Error: '+err.message }
+    })
+
+    /* ---------- Chatbot ----------*/
+    function getSessionId(){
+      let sid = localStorage.getItem('ai_med_session');
+      if(!sid){ sid = 'sess_' + Math.random().toString(36).slice(2,12); localStorage.setItem('ai_med_session', sid); }
+      el('#session-id').value = sid; return sid;
+    }
+    el('#new-session').addEventListener('click', ()=>{ const ns = 'sess_'+Math.random().toString(36).slice(2,12); localStorage.setItem('ai_med_session', ns); el('#session-id').value = ns; el('#messages').innerHTML=''; pushActivity('New session created'); })
+
+    async function sendChat(text){
+      const sid = el('#session-id').value || getSessionId();
+      appendMessage('user', text);
+      try{
+        const res = await fetch(BASE + '/chat', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid, message:text})});
+        if(!res.ok) throw new Error('Status '+res.status);
+        const j = await res.json();
+        appendMessage('ai', j.reply ?? JSON.stringify(j));
+        pushActivity('Chat: ' + text.slice(0,30));
+      }catch(err){ appendMessage('ai','(Error) '+err.message) }
+    }
+
+    function appendMessage(role,txt){
+      const m = create('div','msg '+(role==='user'?'user':'ai'));
+      m.textContent = txt;
+      el('#messages').appendChild(m);
+      el('#messages').scrollTop = el('#messages').scrollHeight;
+    }
+
+    el('#send-chat').addEventListener('click', ()=>{
+      const v = el('#chat-input').value.trim(); if(!v) return; el('#chat-input').value=''; sendChat(v);
+    });
+    el('#chat-input').addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); el('#send-chat').click() } })
+
+    /* ---------- Patient Search ----------*/
+    el('#search-btn').addEventListener('click', async ()=>{
+      const q = el('#search-q').value.trim(); if(!q){ el('#search-status').textContent='กรุณากรอกคำค้นหา'; return }
+      el('#search-status').textContent='Searching...';
+      try{
+        const res = await fetch(BASE + '/patient/search?q=' + encodeURIComponent(q));
+        if(!res.ok) throw new Error('Status '+res.status);
+        const j = await res.json();
+        renderSearchResults(j.results ?? j);
+        el('#search-status').textContent='Found ' + (j.results? j.results.length : (j.length||0)) + ' items';
+      }catch(err){ el('#search-status').textContent='Error: '+err.message }
+    })
+
+    function renderSearchResults(list){
+      const tbody = el('#search-table tbody'); tbody.innerHTML='';
+      if(!list || list.length===0){ tbody.innerHTML='<tr><td colspan="5">No results</td></tr>'; return }
+      list.forEach(p=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${p.patient_id ?? p.id ?? '-'}</td><td>${p.name ?? p.full_name ?? '-'}</td><td>${p.age ?? '-'}</td><td>${p.last_visit ?? '-'}</td><td><button class='btn ghost' data-id='${p.patient_id ?? p.id}'>View</button></td>`;
+        tbody.appendChild(tr);
+      })
+      // attach view handlers
+      tbody.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ alert('Open patient '+b.dataset.id) }));
+    }
+
+    /* ---------- Recent activity ----------*/
+    function pushActivity(text){
+      const elact = el('#recent-activity'); elact.textContent = text; setTimeout(()=>{ if(elact.textContent===text) elact.textContent='ไม่มีการกระทำล่าสุด' },6000)
+    }
+
+    /* ---------- Init ----------*/
+    (function init(){
+      // restore session id
+      getSessionId();
+      // check server and load dashboard
+      checkServer();
+      // try to periodically refresh stats
+      setInterval(checkServer, 60_000);
+
+      // small UX niceties
+      el('#session-id').addEventListener('change', ()=>{ localStorage.setItem('ai_med_session', el('#session-id').value); pushActivity('Session ID updated') });
+
+    })();
+
+    // expose for debug
+    window.__AI_MED = { checkServer, sendChat };
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
